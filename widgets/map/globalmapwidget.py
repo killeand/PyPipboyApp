@@ -426,9 +426,10 @@ class LocationMarker(PipValueMarkerBase):
             py = self.mapCoords.pip2map_y(ry)
             tttext = 'Pos: (' + str(rx) + ', ' + str(ry) + ')'
             props = self.pipValue.value()
-            for prop in props:
-                if prop != 'X' and prop !='Y':
-                    tttext += '\n' + prop + ': ' + str(props[prop].value())
+            for propkey in props:
+                if propkey != 'x' and propkey !='y':
+                    prop = props[propkey]
+                    tttext += '\n' + prop.pipParentKey + ': ' + str(prop.value())
             self.markerItem.setToolTip( tttext )
             if (self.visible or self.filterVisibilityCheatFlag) and self.filterVisibleFlag:
                 self.setVisible(True)
@@ -774,15 +775,16 @@ class CollectableMarker(MarkerBase):
         ftaction.setChecked(self.collected)
 
     def setSavedSettings(self):
-        collectedcollectablesSettingsPath =\
-            self.widget.characterDataManager.playerDataPath + self.widget.characterDataManager.collectedcollectablesuffix
-        index = self.widget._app.settings.value(collectedcollectablesSettingsPath, None)
-        if index == None:
-            index = []
-
-        if index and len(index) > 0:
-            if str(int(self.itemFormID,16)) in index:
-                self.setCollected(True)
+        if self.widget.characterDataManager.playerDataPath and self.widget.characterDataManager.collectedcollectablesuffix:
+            collectedcollectablesSettingsPath =\
+                self.widget.characterDataManager.playerDataPath + self.widget.characterDataManager.collectedcollectablesuffix
+            index = self.widget._app.settings.value(collectedcollectablesSettingsPath, None)
+            if index == None:
+                index = []
+    
+            if index and len(index) > 0:
+                if str(int(self.itemFormID,16)) in index:
+                    self.setCollected(True)
 
         super().setSavedSettings()
 
@@ -854,6 +856,13 @@ class GlobalMapWidget(widgets.WidgetBase):
     
     MAPZOOM_SCALE_MAX = 4.0
     MAPZOOM_SCALE_MIN = 0.05
+    
+    MAP_NWX = -135168
+    MAP_NWY = 102400
+    MAP_NEX = 114688
+    MAP_NEY = 102400
+    MAP_SWX = -135168
+    MAP_SWY = -147456
   
     def __init__(self, handle, controller, parent):
         super().__init__('Global Map', parent)
@@ -1107,17 +1116,13 @@ class GlobalMapWidget(widgets.WidgetBase):
     def _onPipMapReset(self, caller, value, pathObjs):
         self.pipMapWorldObject = self.pipMapObject.child('World')
         if self.pipMapWorldObject:
-            extents = self.pipMapWorldObject.child('Extents')
-            if extents:
-                self.mapCoords.init( 
-                        extents.child('NWX').value(), extents.child('NWY').value(), 
-                        extents.child('NEX').value(),  extents.child('NEY').value(), 
-                        extents.child('SWX').value(), extents.child('SWY').value(), 
-                        self.mapItem.nw[0], self.mapItem.nw[1], 
-                        self.mapItem.ne[0], self.mapItem.ne[1], 
-                        self.mapItem.sw[0], self.mapItem.sw[1] )
-            else:
-                self._logger.warn('No "Extents" record found. Map coordinates may be off')
+            self.mapCoords.init( 
+                    self.MAP_NWX, self.MAP_NWY, 
+                    self.MAP_NEX,  self.MAP_NEY, 
+                    self.MAP_SWX, self.MAP_SWY, 
+                    self.mapItem.nw[0], self.mapItem.nw[1], 
+                    self.mapItem.ne[0], self.mapItem.ne[1], 
+                    self.mapItem.sw[0], self.mapItem.sw[1] )
             if self.widget.mapColorAutoToggle.isChecked():
                 self._slotMapColorAutoModeTriggered(True)
             pipWorldPlayer = self.pipMapWorldObject.child('Player')
@@ -1469,18 +1474,13 @@ class GlobalMapWidget(widgets.WidgetBase):
             self.selectedMapFile = self.mapFileComboItems[index]
             file = os.path.join('res', mapfile['file'])
             self.mapItem.setMapFile(file, mapfile['colorable'], mapfile['nw'], mapfile['ne'], mapfile['sw'])
-            if self.pipMapWorldObject:
-                extents = self.pipMapWorldObject.child('Extents')
-                if extents:
-                    self.mapCoords.init( 
-                            extents.child('NWX').value(), extents.child('NWY').value(), 
-                            extents.child('NEX').value(),  extents.child('NEY').value(), 
-                            extents.child('SWX').value(), extents.child('SWY').value(), 
-                            self.mapItem.nw[0], self.mapItem.nw[1], 
-                            self.mapItem.ne[0], self.mapItem.ne[1], 
-                            self.mapItem.sw[0], self.mapItem.sw[1] )
-                else:
-                    self._logger.warn('No "Extents" record found. Map coordinates may be off')
+            self.mapCoords.init( 
+                    self.MAP_NWX, self.MAP_NWY, 
+                    self.MAP_NEX,  self.MAP_NEY, 
+                    self.MAP_SWX, self.MAP_SWY,
+                    self.mapItem.nw[0], self.mapItem.nw[1], 
+                    self.mapItem.ne[0], self.mapItem.ne[1], 
+                    self.mapItem.sw[0], self.mapItem.sw[1] )
             self.signalMarkerForcePipValueUpdate.emit()
 
             self._app.settings.setValue('globalmapwidget/selectedMapFile', self.selectedMapFile)
